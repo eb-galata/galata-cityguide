@@ -1,1 +1,93 @@
-const C='istanbul-v1';self.addEventListener('install',e=>e.waitUntil(caches.open(C).then(c=>c.addAll(['./','./index.html','./style.css','./app.js','./manifest.json']))));self.addEventListener('fetch',e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));
+/* Service worker — Istanbul à deux (GitHub Pages : /galata-cityguide/) */
+const VERSION = 'istanbul-v2';
+const CORE_CACHE = `${VERSION}-core`;
+const RUNTIME_CACHE = `${VERSION}-runtime`;
+
+const CORE_ASSETS = [
+  './',
+  './index.html',
+  './style.css',
+  './app.js',
+  './manifest.json',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/icon-maskable-192.png',
+  './icons/icon-maskable-512.png',
+  './icons/apple-touch-icon.png',
+  './icons/favicon-48.png'
+];
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CORE_CACHE)
+      .then(cache => cache.addAll(CORE_ASSETS))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.filter(k => k !== CORE_CACHE && k !== RUNTIME_CACHE).map(k => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', event => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+
+  const url = new URL(req.url);
+
+  // Navigation : réseau d'abord, repli sur le cache (fonctionne hors connexion)
+  if (req.mode === 'navigate') {
+    event.respondWith(
+      fetch(req)
+        .then(res => {
+          const copy = res.clone();
+          caches.open(CORE_CACHE).then(c => c.put('./index.html', copy));
+          return res;
+        })
+        .catch(() => caches.match('./index.html').then(r => r || caches.match('./')))
+    );
+    return;
+  }
+
+  // Polices Google : mises en cache à la première visite en ligne
+  if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
+    event.respondWith(
+      caches.open(RUNTIME_CACHE).then(cache =>
+        cache.match(req).then(cached => {
+          const fetching = fetch(req)
+            .then(res => {
+              if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone());
+              return res;
+            })
+            .catch(() => cached);
+          return cached || fetching;
+        })
+      )
+    );
+    return;
+  }
+
+  // Fichiers de l'application : cache d'abord, mise à jour en arrière-plan
+  if (url.origin === self.location.origin) {
+    event.respondWith(
+      caches.match(req).then(cached => {
+        const fetching = fetch(req)
+          .then(res => {
+            if (res && res.ok) {
+              const copy = res.clone();
+              caches.open(CORE_CACHE).then(c => c.put(req, copy));
+            }
+            return res;
+          })
+          .catch(() => cached);
+        return cached || fetching;
+      })
+    );
+  }
+});
