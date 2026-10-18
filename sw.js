@@ -1,5 +1,5 @@
 /* Service worker — Istanbul à deux (GitHub Pages : /galata-cityguide/) */
-const VERSION = 'istanbul-v2';
+const VERSION = 'istanbul-v3';
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
@@ -9,18 +9,20 @@ const CORE_ASSETS = [
   './style.css',
   './app.js',
   './manifest.json',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/icon-maskable-192.png',
-  './icons/icon-maskable-512.png',
-  './icons/apple-touch-icon.png',
-  './icons/favicon-48.png'
+  './icon-192.png',
+  './icon-512.png',
+  './icon-maskable-192.png',
+  './icon-maskable-512.png',
+  './apple-touch-icon.png',
+  './favicon-48.png'
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CORE_CACHE)
-      .then(cache => cache.addAll(CORE_ASSETS))
+      .then(cache => Promise.all(
+        CORE_ASSETS.map(url => cache.add(url).catch(() => null))
+      ))
       .then(() => self.skipWaiting())
   );
 });
