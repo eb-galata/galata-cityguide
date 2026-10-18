@@ -1,5 +1,5 @@
 /* Service worker — Istanbul à deux (GitHub Pages : /galata-cityguide/) */
-const VERSION = 'istanbul-v3';
+const VERSION = 'istanbul-v4';
 const CORE_CACHE = `${VERSION}-core`;
 const RUNTIME_CACHE = `${VERSION}-runtime`;
 
